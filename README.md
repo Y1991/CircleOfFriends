@@ -7,8 +7,23 @@
 
 
 ![Image text](https://github.com/Y1991/CircleOfFriends/blob/master/github_img/2018-05-14%2000_31_09.gif)
+
+
+1.png ------------
 ![Image text](https://github.com/Y1991/CircleOfFriends/blob/master/github_img/1.png)
+
+
+2.png ------------
 ![Image text](https://github.com/Y1991/CircleOfFriends/blob/master/github_img/2.png)
+
+
+3.png ------------
 ![Image text](https://github.com/Y1991/CircleOfFriends/blob/master/github_img/3.png)
+
+
+4.png ------------
 ![Image text](https://github.com/Y1991/CircleOfFriends/blob/master/github_img/4.png)
+
+
+5.png ------------
 ![Image text](https://github.com/Y1991/CircleOfFriends/blob/master/github_img/5.png)
