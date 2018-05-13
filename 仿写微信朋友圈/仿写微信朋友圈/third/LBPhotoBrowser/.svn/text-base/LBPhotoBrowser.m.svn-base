@@ -1,0 +1,447 @@
+//
+//  LBPhotoBrowser.m
+//
+//  Created by 刘博 on 16/5/3.
+//  Copyright © 2016年 刘博. All rights reserved.
+//
+
+#import "LBPhotoBrowser.h"
+#import "LBPhotoBrowserImageView.h"
+
+/**< 图片间距 */
+static CGFloat        const kMargin            = 10.0f;
+
+/**< 动画时间 */
+static CFTimeInterval const kAnimationDuration = 0.4f;
+
+@interface LBPhotoBrowser () <UIScrollViewDelegate>
+
+/**< 滚动视图 */
+@property (nonatomic, strong) UIScrollView  *scrollView;
+
+/**< 页码 */
+@property (nonatomic, strong) UIPageControl *pageControl;
+@property (nonatomic, assign) NSInteger     currentImageIndex; /**<当前图片index*/
+@property (nonatomic, assign) CGRect        itemFrame;         /**<源图片imageView的frame*/
+@property (nonatomic, strong) UIView        *sourceView;       /**<源图片父视图*/
+@property (nonatomic, assign) NSInteger     sourceSection;     /**<源视图section，如果源视图为tableView或collectionView*/
+@property (nonatomic, strong) UIView        *bottomView;
+@property (nonatomic, strong) UIButton      *tempBG;
+
+@end
+
+@implementation LBPhotoBrowser
+
+#pragma mark - override
+
+- (id)init {
+    self = [super init];
+    if (self) {
+        self.backgroundColor = [UIColor blackColor];
+    }
+    return self;
+}
+
+- (void)didMoveToSuperview {
+    [self addSubview:self.scrollView];
+    [self setupImageOfImageViewForIndex:_currentImageIndex];
+}
+
+- (void)layoutSubviews {
+    [super layoutSubviews];
+    
+    CGRect rect = self.bounds;
+    rect.size.width += kMargin * 2;
+    
+    self.scrollView.bounds = rect;
+    self.scrollView.center = self.center;
+    
+    CGFloat y      = 0;
+    CGFloat width  = _scrollView.frame.size.width - kMargin * 2;
+    CGFloat height = _scrollView.frame.size.height;
+    
+    [self.scrollView.subviews enumerateObjectsUsingBlock:^(UIImageView *obj, NSUInteger idx, BOOL *stop) {
+        CGFloat x = kMargin + idx * (kMargin * 2 + width);
+        obj.frame = CGRectMake(x, y, width, height);
+    }];
+    
+    self.scrollView.contentSize = CGSizeMake(_scrollView.subviews.count * _scrollView.frame.size.width, 0);
+    self.scrollView.contentOffset = CGPointMake(_currentImageIndex * _scrollView.frame.size.width, 0);
+    
+    self.pageControl.frame = CGRectMake(0, SCREEN_HEIGHT - 40, SCREEN_WIDTH, 20);
+}
+
+#pragma mark - UIScrollViewDelegate 
+
+- (void)scrollViewDidScroll:(UIScrollView *)scrollView {
+    _currentImageIndex = (scrollView.contentOffset.x + scrollView.bounds.size.width * 0.5) / scrollView.bounds.size.width;
+     self.pageControl.currentPage = _currentImageIndex;
+    // 有过缩放的图片在滑出屏幕后清除缩放
+    for (LBPhotoBrowserImageView *imageView in scrollView.subviews) {
+        if (imageView.isScaled) {
+            if (scrollView.contentOffset.x <= imageView.frame.origin.x - scrollView.frame.size.width ||
+                scrollView.contentOffset.x >= imageView.frame.origin.x + imageView.frame.size.width) {
+                imageView.transform = CGAffineTransformIdentity;
+                [imageView clearScale];
+                break;
+            }
+        }
+    }
+    [self setupImageOfImageViewForIndex:_currentImageIndex];
+}
+
+#pragma mark - event respons
+
+/**
+ *  单击图片事件(关闭LBPhotoBrowser)
+ *
+ *  @param recognizer 单击手势
+ */
+- (void)imageSingleTap:(UITapGestureRecognizer *)recognizer {
+    self.scrollView.hidden = YES;
+    //获取当前的imageView
+    LBPhotoBrowserImageView *currentImageView = (LBPhotoBrowserImageView *)recognizer.view;
+    
+    //计算图片缩小的最终frame
+    CGFloat x = _itemFrame.origin.x;
+    CGFloat y = _itemFrame.origin.y;
+    
+    BOOL flag = NO;
+    
+    if ([_sourceView isKindOfClass:[UICollectionView class]]) {
+        UICollectionView *collectionView = (UICollectionView *)_sourceView;
+        NSIndexPath *indexPath = [NSIndexPath indexPathForRow:_currentImageIndex inSection:_sourceSection];
+        UICollectionViewCell *cell = [collectionView cellForItemAtIndexPath:indexPath];
+        x += (cell.frame.origin.x + collectionView.frame.origin.x - collectionView.contentOffset.x);
+        y += (cell.frame.origin.y + collectionView.frame.origin.y - collectionView.contentOffset.y);
+        if (cell.frame.size.width == 0 && cell.frame.size.height == 0) {
+            flag = YES;
+        }
+    }
+    else if ([_sourceView isKindOfClass:[UITableView class]]) {
+        UITableView *tableView = (UITableView *)_sourceView;
+        NSIndexPath *indexPath = [NSIndexPath indexPathForRow:_currentImageIndex inSection:_sourceSection];
+        UITableViewCell *cell = [tableView cellForRowAtIndexPath:indexPath];
+        x += (cell.frame.origin.x + tableView.frame.origin.x - tableView.contentOffset.x);
+        y += (cell.frame.origin.y + tableView.frame.origin.y - tableView.contentOffset.y);
+        if (cell.frame.size.width == 0 && cell.frame.size.height == 0) {
+            flag = YES;
+        }
+    }
+    
+    for (UIView *next = _sourceView.superview; next; next = next.superview) {
+        if ([next isKindOfClass:[UIScrollView class]]) {
+            UIScrollView *scrollView = (UIScrollView *)next;
+            x += next.frame.origin.x - scrollView.contentOffset.x;
+            y += next.frame.origin.y - scrollView.contentOffset.y;
+        }
+        else {
+            x += next.frame.origin.x;
+            y += next.frame.origin.y;
+        }
+    }
+//    CGRect rect = [_sourceView convertRect:_sourceView.frame toView:self];
+    
+    //执行动画的imageView
+    UIImageView *tempView = [[UIImageView alloc] init];
+    tempView.contentMode = _sourceView.contentMode;
+    tempView.clipsToBounds = YES;
+    tempView.image = currentImageView.image;
+    CGFloat height = (self.bounds.size.width / currentImageView.image.size.width) * currentImageView.image.size.height;
+    
+    if (!currentImageView.image) { // 防止 因imageview的image加载失败 导致 崩溃
+        height = self.bounds.size.height;
+    }
+    
+    tempView.bounds = CGRectMake(0, 0, self.bounds.size.width * currentImageView.totalScale, height * currentImageView.totalScale);
+    tempView.center = self.center;
+    
+    [self addSubview:tempView];
+    [self.pageControl removeFromSuperview];
+    
+    [UIView animateWithDuration:kAnimationDuration animations:^{
+        if (flag) {
+            self.alpha = 0;
+        }
+        else {
+            tempView.frame = CGRectMake(x, y, _itemFrame.size.width, _itemFrame.size.height);
+            self.backgroundColor = [UIColor clearColor];
+        }
+    } completion:^(BOOL finished) {
+        [self removeFromSuperview];
+    }];
+}
+
+/**
+ *  长按图片事件
+ *
+ *  @param recognizer 长按手势
+ */
+- (void)imageLongPress:(UILongPressGestureRecognizer *)recognizer {
+    [self addSubview:self.tempBG];
+    [self addSubview:self.bottomView];
+    [UIView animateWithDuration:0.3 animations:^{
+        self.tempBG.alpha = 0.3;
+        self.bottomView.frame = CGRectMake(0, SCREEN_HEIGHT - 110, SCREEN_WIDTH, 110);
+    }];
+}
+
+/**
+ *  保存按钮点击事件
+ *
+ *  @param sender 保存按钮
+ */
+- (void)saveBtnClick:(UIButton *)sender {
+    UIImageView *currentImageView = _scrollView.subviews[_currentImageIndex];
+    
+    UIImageWriteToSavedPhotosAlbum(currentImageView.image, self, @selector(image:didFinishSavingWithError:contextInfo:), NULL);
+}
+
+/**
+ *  取消按钮点击事件
+ *
+ *  @param sender
+ */
+- (void)cancelBtnClick:(UIButton *)sender {
+    [UIView animateWithDuration:0.3 animations:^{
+        self.tempBG.alpha = 0;
+        self.bottomView.frame = CGRectMake(0, SCREEN_HEIGHT, SCREEN_WIDTH, 110);
+    } completion:^(BOOL finished) {
+        [self.tempBG removeFromSuperview];
+        [self.bottomView removeFromSuperview];
+    }];
+}
+
+#pragma mark - public method
+
+/**
+ *  展示LBPhotoBrowser
+ *
+ *  @param view    源视图（图片所在的imageView或button）
+ *  @param index   索引（源视图为scrollView、tableView或collectionView时使用，tableView或collectionView传入indexPath.row，第一        张或单张图片传入0）
+ *  @param section 源视图为tableView或collectionView时使用，传入indexPath.section，否则传入0或nil
+ */
+- (void)showWithView:(UIView *)view index:(NSInteger)index section:(NSInteger)section {
+    [self addToWindow];
+    
+    _itemFrame         = view.frame;
+    _currentImageIndex = index;
+    _sourceView        = view;
+    _sourceSection     = section;
+    
+    BOOL savedSourceView = NO;
+    
+    //计算源视图相对于屏幕的frame
+    CGFloat x = view.frame.origin.x;
+    CGFloat y = view.frame.origin.y;
+    for (UIView *next = view.superview; next; next = next.superview) {
+        if ([next isKindOfClass:[UIScrollView class]]) {
+            UIScrollView *scrollView = (UIScrollView *)next;
+            x += next.frame.origin.x - scrollView.contentOffset.x;
+            y += next.frame.origin.y - scrollView.contentOffset.y;
+        }
+        else {
+            x += next.frame.origin.x;
+            y += next.frame.origin.y;
+        }
+        
+        if (!savedSourceView && ([next isKindOfClass:[UICollectionViewCell class]] || [next isKindOfClass:[UITableViewCell class]])) {
+            _sourceView = next.superview;
+            savedSourceView = YES;
+        }
+    }
+
+//    CGRect rect = [view convertRect:view.frame toView:self];
+    
+    //执行动画的imageView
+    UIImageView *tempView = [[UIImageView alloc] init];
+//    tempView.image = [(UIImageView *)view image];
+    
+    if ([self highQualityImageURLForIndex:index]) {
+        [tempView sd_setImageWithURL:[self highQualityImageURLForIndex:index]
+                     placeholderImage:[self placeholderImageForIndex:index]];
+    }
+    
+    [self addSubview:tempView];
+    
+    tempView.frame = CGRectMake(x, y, view.frame.size.width, view.frame.size.height);;
+    tempView.contentMode = UIViewContentModeScaleToFill;
+    self.scrollView.hidden = YES;
+    
+    CGFloat height = self.bounds.size.width / _firstSize.width * _firstSize.height;
+    [UIView animateWithDuration:kAnimationDuration animations:^{
+        tempView.center = self.center;
+        tempView.bounds = CGRectMake(0, 0, SCREEN_WIDTH, height);
+    } completion:^(BOOL finished) {
+        [tempView removeFromSuperview];
+        self.scrollView.hidden = NO;
+//        if (_imageArray.count > 1) {
+            self.pageControl.numberOfPages = _imageCount;
+            self.pageControl.currentPage = index;
+            [self addSubview:self.pageControl];
+//        }
+    }];
+}
+
+#pragma mark - private methods
+
+/**
+ *  添加至window
+ */
+- (void)addToWindow {
+    self.frame = [UIApplication sharedApplication].delegate.window.bounds;
+    [[UIApplication sharedApplication].delegate.window addSubview:self];
+}
+
+- (void)image:(UIImage *)image didFinishSavingWithError:(NSError *)error contextInfo:(void *)contextInfo {
+    [self cancelBtnClick:nil];
+    
+    UILabel *label = [[UILabel alloc] init];
+    label.textColor = [UIColor whiteColor];
+    label.backgroundColor = [UIColor colorWithRed:0.1f green:0.1f blue:0.1f alpha:0.90f];
+    label.layer.cornerRadius = 5;
+    label.clipsToBounds = YES;
+    label.bounds = CGRectMake(0, 0, 150, 30);
+    label.center = self.center;
+    label.textAlignment = NSTextAlignmentCenter;
+    label.font = [UIFont boldSystemFontOfSize:17];
+    [[UIApplication sharedApplication].keyWindow addSubview:label];
+    [[UIApplication sharedApplication].keyWindow bringSubviewToFront:label];
+    if (error) {
+        label.text = @"保存失败";
+    }   else {
+        label.text = @"保存成功";
+    }
+    [label performSelector:@selector(removeFromSuperview) withObject:nil afterDelay:2.0];
+    
+}
+
+// 加载图片
+- (void)setupImageOfImageViewForIndex:(NSInteger)index {
+    LBPhotoBrowserImageView *imageView = self.scrollView.subviews[index];
+    self.currentImageIndex = index;
+    
+    if (imageView.hasLoadedImage) {
+        return;
+    }
+    
+    if ([self highQualityImageURLForIndex:index]) {
+        [imageView sd_setImageWithURL:[self highQualityImageURLForIndex:index]
+                     placeholderImage:[self placeholderImageForIndex:index]];
+    }
+    else {
+        imageView.image = [self placeholderImageForIndex:index];
+    }
+    imageView.hasLoadedImage = YES;
+}
+
+/**
+ *  占位图
+ *
+ *  @param index 索引
+ *
+ *  @return
+ */
+- (UIImage *)placeholderImageForIndex:(NSInteger)index {
+    if ([_delegate respondsToSelector:@selector(photoBrowser:placeholderImageForIndex:)]) {
+        return [_delegate photoBrowser:self placeholderImageForIndex:index];
+    }
+    return nil;
+}
+
+/**
+ *  高质量
+ *
+ *  @param index 索引
+ *
+ *  @return
+ */
+- (NSURL *)highQualityImageURLForIndex:(NSInteger)index {
+    if ([_delegate respondsToSelector:@selector(photoBrowser:highQualityImageURLForIndex:)]) {
+        return [_delegate photoBrowser:self highQualityImageURLForIndex:index];
+    }
+    return nil;
+}
+
+#pragma mark - getters
+
+- (UIScrollView *)scrollView {
+    if (!_scrollView) {
+        _scrollView = [[UIScrollView alloc] init];
+        _scrollView.delegate                       = self;
+        _scrollView.showsHorizontalScrollIndicator = NO;
+        _scrollView.showsVerticalScrollIndicator   = NO;
+        _scrollView.pagingEnabled                  = YES;
+        
+        for (int i = 0; i < _imageCount; i++) {
+            LBPhotoBrowserImageView *imageView = [[LBPhotoBrowserImageView alloc] init];
+            imageView.tag = i;
+            imageView.contentMode = UIViewContentModeScaleAspectFit;
+            imageView.userInteractionEnabled = YES;
+            //单击
+            UITapGestureRecognizer *singleTap = [[UITapGestureRecognizer alloc] initWithTarget:self action:@selector(imageSingleTap:)];
+            
+            //长按
+            UILongPressGestureRecognizer *longPress = [[UILongPressGestureRecognizer alloc] initWithTarget:self action:@selector(imageLongPress:)];
+            longPress.minimumPressDuration = 1;
+
+            [imageView addGestureRecognizer:singleTap];
+//            [imageView addGestureRecognizer:longPress];
+            [_scrollView addSubview:imageView];
+        }
+    }
+    return _scrollView;
+}
+
+- (UIPageControl *)pageControl {
+    if (!_pageControl) {
+        _pageControl = [[UIPageControl alloc] init];
+        _pageControl.hidesForSinglePage = YES;
+        _pageControl.enabled = NO;
+    }
+    return _pageControl;
+}
+
+- (UIViewController *)currentController {
+    [UIApplication sharedApplication].delegate.window.windowLevel = UIWindowLevelAlert;
+    return [UIApplication sharedApplication].delegate.window.rootViewController;
+}
+
+- (UIView *)bottomView {
+    if (!_bottomView) {
+        _bottomView = [[UIView alloc] init];
+        _bottomView.frame = CGRectMake(0, SCREEN_HEIGHT, SCREEN_WIDTH, 110);
+        _bottomView.backgroundColor = [UIColor colorWithRed:0.85 green:0.85 blue:0.85 alpha:1];
+        
+        UIButton *saveBtn = [UIButton buttonWithType:UIButtonTypeCustom];
+        saveBtn.frame = CGRectMake(0, 0, SCREEN_WIDTH, 50);
+        saveBtn.backgroundColor = [UIColor whiteColor];
+        saveBtn.titleLabel.font = [UIFont systemFontOfSize:15];
+        [saveBtn setTitle:@"保存图片" forState:UIControlStateNormal];
+        [saveBtn setTitleColor:[UIColor darkTextColor] forState:UIControlStateNormal];
+        [saveBtn addTarget:self action:@selector(saveBtnClick:) forControlEvents:UIControlEventTouchUpInside];
+        [_bottomView addSubview:saveBtn];
+        
+        UIButton *cancelBtn = [UIButton buttonWithType:UIButtonTypeCustom];
+        cancelBtn.frame = CGRectMake(0, 60, SCREEN_WIDTH, 50);
+        cancelBtn.backgroundColor = [UIColor whiteColor];
+        cancelBtn.titleLabel.font = [UIFont systemFontOfSize:15];
+        [cancelBtn setTitle:@"取消" forState:UIControlStateNormal];
+        [cancelBtn setTitleColor:[UIColor darkTextColor] forState:UIControlStateNormal];
+        [cancelBtn addTarget:self action:@selector(cancelBtnClick:) forControlEvents:UIControlEventTouchUpInside];
+        [_bottomView addSubview:cancelBtn];
+    }
+    return _bottomView;
+}
+
+- (UIButton *)tempBG {
+    if (!_tempBG) {
+        _tempBG = [[UIButton alloc] initWithFrame:self.bounds];
+        _tempBG.backgroundColor = [UIColor grayColor];
+        _tempBG.alpha = 0;
+        [_tempBG addTarget:self action:@selector(cancelBtnClick:) forControlEvents:UIControlEventTouchUpInside];
+    }
+    return _tempBG;
+}
+
+@end

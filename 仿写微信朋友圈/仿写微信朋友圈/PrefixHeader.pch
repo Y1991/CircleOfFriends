@@ -1,0 +1,61 @@
+//
+//  PrefixHeader.pch
+//  仿写微信朋友圈
+//
+//  Created by Guangquan Yu on 2017/11/13.
+//  Copyright © 2017年 ZHM.YU. All rights reserved.
+//
+
+#ifndef PrefixHeader_pch
+#define PrefixHeader_pch
+#ifdef __OBJC__
+
+#import "UIView+CreateUI.h"
+#import "UIView+GQYYText.h"
+
+#import "Masonry.h"
+#import "YYText.h"
+#import "LBPhotoBrowser.h"
+#import "AFNetworking.h"
+#import "UIImageView+AFNetworking.h"
+
+
+#ifndef    weakly
+#if __has_feature(objc_arc)
+#define weakly( x )    autoreleasepool{} __weak __typeof__(x) __weak_##x##__ = x;
+#else    // #if __has_feature(objc_arc)
+#define weakly( x )    autoreleasepool{} __block __typeof__(x) __block_##x##__ = x;
+#endif    // #if __has_feature(objc_arc)
+#endif    // #ifndef    weakify
+
+#undef  APP
+#define APP ((AppDelegate *)[UIApplication sharedApplication].delegate)
+
+#undef  stringdef
+#define stringdef(s,...) [[NSString stringWithFormat:s, ##__VA_ARGS__]].firstObject
+
+#undef  strong_pro
+#define strong_pro property(nonatomic, strong)
+
+#undef  weak_pro
+#define weak_pro property(nonatomic, weak)
+
+#undef  assign_pro
+#define assign_pro property(nonatomic, assign)
+
+#undef  readonly_pro
+#define readonly_pro property(nonatomic, readonly)
+
+#undef  copy_pro
+#define copy_pro property(nonatomic, copy)
+
+#undef  lazyloading_implementation
+#define lazyloading_implementation(returnType, propertyName, ...)   -(returnType)propertyName{ \
+if (!_##propertyName) {\
+__VA_ARGS__\
+}\
+return _##propertyName;\
+};
+
+#endif
+#endif /* PrefixHeader_pch */
