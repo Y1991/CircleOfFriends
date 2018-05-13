@@ -9,21 +9,66 @@
 ![Image text](https://github.com/Y1991/CircleOfFriends/blob/master/github_img/2018-05-14%2000_31_09.gif)
 
 
+
+
+
 1.png ------------------------------------------------------------------------------------------------------------
+
+全文 / 收起
+
 ![Image text](https://github.com/Y1991/CircleOfFriends/blob/master/github_img/1.png)
 
 
+
+
+
 2.png ------------------------------------------------------------------------------------------------------------
+
+评论 / 点赞
+
 ![Image text](https://github.com/Y1991/CircleOfFriends/blob/master/github_img/2.png)
 
 
+
+
+
 3.png ------------------------------------------------------------------------------------------------------------
+
+点击被评论人
+
 ![Image text](https://github.com/Y1991/CircleOfFriends/blob/master/github_img/3.png)
 
 
+
+
+
 4.png ------------------------------------------------------------------------------------------------------------
+
+点击评论人
+
 ![Image text](https://github.com/Y1991/CircleOfFriends/blob/master/github_img/4.png)
 
 
+
+
+
 5.png ------------------------------------------------------------------------------------------------------------
+
+表情键盘，表视图适应键盘滚动
+
 ![Image text](https://github.com/Y1991/CircleOfFriends/blob/master/github_img/5.png)
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
