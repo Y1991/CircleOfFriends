@@ -21,7 +21,7 @@
 
 全文 / 收起
 
-![Image text](https://github.com/Y1991/CircleOfFriends/blob/master/github_img/1.png)
+![Image text](https://github.com/Y1991/CircleOfFriends/blob/master/github_img/1.png)![Image text](https://github.com/Y1991/CircleOfFriends/blob/master/github_img/2.png)
 
 
 
